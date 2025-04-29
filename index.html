@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Private Search Research Assistant</title>
+  <meta name="description" content="A black-and-white, sources-first explainer of a private research loop built around SearXNG, extraction, deduplication, short summaries, citations, and Redis caching.">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+  <style>
+    :root {
+      --paper: #ffffff;
+      --ink: #111111;
+      --muted: #5f5f5f;
+      --line: #d6d6d6;
+      --line-strong: #a8a8a8;
+      --wash: #f5f5f5;
+      --wash-deep: #ececec;
+      --edge: #c2c2c2;
+      --shadow: rgba(0, 0, 0, 0.05);
+      --max: 1180px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        linear-gradient(90deg, transparent 0, transparent 7.5rem, var(--wash) 7.5rem, var(--wash) calc(7.5rem + 1px), transparent calc(7.5rem + 1px)),
+        linear-gradient(90deg, transparent 0, transparent calc(100% - 5rem), var(--wash) calc(100% - 5rem), var(--wash) calc(100% - 4.9rem), transparent calc(100% - 4.9rem)),
+        var(--paper);
+      font-family: "Source Serif 4", Georgia, serif;
+      line-height: 1.68;
+    }
+
+    a {
+      color: inherit;
+      text-decoration-color: var(--line-strong);
+      text-underline-offset: 0.18em;
+    }
+
+    p, li {
+      font-size: 1.04rem;
+    }
+
+    code, pre {
+      font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+    }
+
+    .page {
+      max-width: var(--max);
+      margin: 0 auto;
+      padding: 3rem 1.5rem 5rem;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 2.2fr) minmax(18rem, 1fr);
+      gap: 2rem;
+      align-items: start;
+      padding-bottom: 2.25rem;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .eyebrow,
+    .section-kicker,
+    .meta-label,
+    figcaption,
+    .note-label,
+    .rail-title {
+      font-family: "IBM Plex Mono", monospace;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .eyebrow {
+      margin: 0 0 1rem;
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(2.8rem, 5vw, 5.2rem);
+      line-height: 0.95;
+      letter-spacing: -0.04em;
+      max-width: 10ch;
+    }
+
+    .lede {
+      max-width: 42rem;
+      margin: 1.4rem 0 0;
+      font-size: 1.28rem;
+      line-height: 1.7;
+    }
+
+    .hero-note {
+      background: linear-gradient(180deg, var(--wash), transparent 85%);
+      border: 1px solid var(--line);
+      padding: 1.2rem 1.2rem 1.35rem;
+      position: sticky;
+      top: 1.2rem;
+    }
+
+    .hero-note p {
+      margin: 0.35rem 0 0;
+      font-size: 0.97rem;
+      line-height: 1.7;
+    }
+
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.85rem 1rem;
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--line);
+    }
+
+    .meta-grid div {
+      min-width: 0;
+    }
+
+    .meta-label {
+      display: block;
+      margin-bottom: 0.25rem;
+      color: var(--muted);
+      font-size: 0.68rem;
+    }
+
+    .meta-value {
+      font-size: 0.94rem;
+      line-height: 1.45;
+    }
+
+    .content {
+      display: grid;
+      grid-template-columns: 15rem minmax(0, 1fr);
+      gap: 2.2rem;
+      margin-top: 2rem;
+    }
+
+    .rail {
+      padding-top: 0.4rem;
+    }
+
+    .rail-box {
+      position: sticky;
+      top: 1.2rem;
+      padding: 1rem 1rem 1.1rem;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: blur(1px);
+    }
+
+    .rail-title {
+      margin: 0 0 0.75rem;
+      color: var(--muted);
+      font-size: 0.72rem;
+    }
+
+    .rail ol {
+      margin: 0;
+      padding-left: 1.1rem;
+    }
+
+    .rail li {
+      margin: 0 0 0.55rem;
+      font-size: 0.92rem;
+      line-height: 1.45;
+    }
+
+    article {
+      min-width: 0;
+    }
+
+    section {
+      position: relative;
+      padding: 0 0 2.8rem 1.8rem;
+      margin: 0 0 2.8rem;
+      border-left: 1px solid var(--line);
+    }
+
+    section:last-of-type {
+      margin-bottom: 0;
+      padding-bottom: 0;
+    }
+
+    .section-kicker {
+      display: inline-block;
+      margin-bottom: 0.65rem;
+      color: var(--muted);
+      font-size: 0.72rem;
+    }
+
+    h2 {
+      margin: 0 0 1rem;
+      font-size: clamp(1.9rem, 3vw, 2.8rem);
+      line-height: 1.05;
+      letter-spacing: -0.03em;
+      max-width: 14ch;
+    }
+
+    .pull-quote {
+      margin: 1.4rem 0 0;
+      padding: 1rem 1.1rem 1rem 1.2rem;
+      border-left: 3px solid var(--ink);
+      background: var(--wash);
+      font-size: 1rem;
+    }
+
+    .figure {
+      margin: 1.8rem 0 1rem;
+      padding: 1rem;
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, #ffffff, var(--wash));
+      box-shadow: 0 16px 30px var(--shadow);
+    }
+
+    .figure svg {
+      display: block;
+      width: 100%;
+      height: auto;
+      border: 1px solid var(--line);
+      background: #ffffff;
+    }
+
+    figcaption {
+      margin-top: 0.95rem;
+      color: var(--muted);
+      font-size: 0.75rem;
+      line-height: 1.75;
+      text-transform: none;
+      letter-spacing: 0.01em;
+    }
+
+    .code-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1rem;
+      margin: 1.4rem 0 0.6rem;
+    }
+
+    .code-card,
+    .note-card,
+    .citation-demo,
+    .constraint-list {
+      border: 1px solid var(--line);
+      background: var(--wash);
+    }
+
+    .code-card {
+      padding: 0.9rem 1rem 1rem;
+    }
+
+    .code-card h3,
+    .note-card h3,
+    .citation-demo h3,
+    .constraint-list h3 {
+      margin: 0 0 0.65rem;
+      font-size: 1rem;
+    }
+
+    pre {
+      margin: 0;
+      white-space: pre-wrap;
+      font-size: 0.88rem;
+      line-height: 1.6;
+    }
+
+    .note-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1rem;
+      margin-top: 1.2rem;
+    }
+
+    .note-card {
+      padding: 1rem;
+    }
+
+    .note-label {
+      display: inline-block;
+      margin-bottom: 0.55rem;
+      color: var(--muted);
+      font-size: 0.68rem;
+    }
+
+    .citation-demo {
+      margin-top: 1.4rem;
+      padding: 1rem 1rem 1.2rem;
+    }
+
+    .answer-block {
+      margin-top: 0.85rem;
+      padding: 1rem;
+      background: #ffffff;
+      border: 1px solid var(--edge);
+    }
+
+    .answer-block p {
+      margin: 0;
+    }
+
+    .source-stack {
+      margin: 1rem 0 0;
+      padding: 0;
+      list-style: none;
+      display: grid;
+      gap: 0.7rem;
+    }
+
+    .source-stack li {
+      padding: 0.8rem 0.9rem;
+      background: #ffffff;
+      border: 1px solid var(--edge);
+      font-size: 0.94rem;
+    }
+
+    .source-stack strong {
+      display: block;
+      margin-bottom: 0.2rem;
+      font-size: 0.97rem;
+    }
+
+    .constraint-list {
+      margin-top: 1.3rem;
+      padding: 1rem 1rem 1rem 1.2rem;
+    }
+
+    .constraint-list ul {
+      margin: 0.7rem 0 0;
+      padding-left: 1.1rem;
+    }
+
+    .constraint-list li {
+      margin-bottom: 0.65rem;
+    }
+
+    .footer-note {
+      margin-top: 2.5rem;
+      padding-top: 1.2rem;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    @media (max-width: 980px) {
+      .hero,
+      .content,
+      .code-grid,
+      .note-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .hero-note,
+      .rail-box {
+        position: static;
+      }
+
+      body {
+        background:
+          linear-gradient(90deg, transparent 0, transparent 1.5rem, var(--wash) 1.5rem, var(--wash) calc(1.5rem + 1px), transparent calc(1.5rem + 1px)),
+          var(--paper);
+      }
+    }
+
+    @media (max-width: 640px) {
+      .page {
+        padding: 1.4rem 0.95rem 3rem;
+      }
+
+      section {
+        padding-left: 1rem;
+      }
+
+      h1 {
+        max-width: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">Private Research Loop / Sources-First System Note</p>
+        <h1>Private Search Research Assistant</h1>
+        <p class="lede">Research usually slows down before analysis becomes difficult. The delay comes earlier, in the repetitive mechanics of searching across several indexes, opening near-identical pages, deciding which copy is canonical, skimming for the one paragraph that actually answers the question, and then rebuilding the provenance chain by hand so the answer can be trusted later. This assistant is designed to reduce that friction without hiding sources behind a polished paragraph. It aggregates search through SearXNG, filters and deduplicates candidates, extracts the content that matters, asks Gemini Flash for short summaries only after the evidence set is narrowed, and keeps citations and links at the center of the final response. Redis sits beside the loop so repeated or closely related queries do not force the same retrieval work every time.</p>
+      </div>
+      <aside class="hero-note" aria-label="System summary">
+        <p class="eyebrow">Working Premise</p>
+        <p>This is not a general-purpose answer box. It is a constrained research instrument built to shorten the first pass while preserving inspectable source paths.</p>
+        <div class="meta-grid">
+          <div>
+            <span class="meta-label">Search intake</span>
+            <span class="meta-value">SearXNG fanout across multiple search sources</span>
+          </div>
+          <div>
+            <span class="meta-label">Selection logic</span>
+            <span class="meta-value">Candidate filtering and deduplication before summarization</span>
+          </div>
+          <div>
+            <span class="meta-label">Reading step</span>
+            <span class="meta-value">Page extraction rather than headline-only synthesis</span>
+          </div>
+          <div>
+            <span class="meta-label">Output rule</span>
+            <span class="meta-value">Short answer, explicit citations, links retained</span>
+          </div>
+          <div>
+            <span class="meta-label">Acceleration</span>
+            <span class="meta-value">Redis cache for repeated and near-repeated queries</span>
+          </div>
+          <div>
+            <span class="meta-label">Design bias</span>
+            <span class="meta-value">Source visibility over conversational smoothness</span>
+          </div>
+        </div>
+      </aside>
+    </header>
+
+    <div class="content">
+      <aside class="rail">
+        <div class="rail-box">
+          <p class="rail-title">Inquiry Stages</p>
+          <ol>
+            <li><a href="#friction">Where does the delay begin?</a></li>
+            <li><a href="#fanout">What happens when one query splits?</a></li>
+            <li><a href="#fetch">Which pages deserve a full fetch?</a></li>
+            <li><a href="#extract">What survives extraction?</a></li>
+            <li><a href="#collapse-duplicates">How are duplicates collapsed?</a></li>
+            <li><a href="#assembly">When does summarization become assembly?</a></li>
+            <li><a href="#citations">How are citations kept visible?</a></li>
+            <li><a href="#constraints">What keeps the loop honest?</a></li>
+          </ol>
+        </div>
+      </aside>
+
+      <article>
+        <section id="friction">
+          <span class="section-kicker">Stage 01</span>
+          <h2>Where does research actually stall?</h2>
+          <p>The common failure mode in assisted research is not a lack of language generation. It is too much uninspected retrieval. A user starts with a narrow question, perhaps about a vendor policy, a feature announcement, an academic claim, or a market event. The search layer returns many URLs, but several are syndications, cached mirrors, translated reposts, forum paraphrases, or pages that quote the original without adding authority. The user is forced into mechanical sorting: open six tabs, dismiss four, read two, then reconstruct which facts came from which page. That work is cognitively expensive precisely because it is repetitive. It is easy to miss a relevant source because attention is spent on housekeeping.</p>
+          <p>A sources-first assistant therefore has to expose its retrieval mechanics rather than dissolve them into a fluent answer. It can remove repetitive work, but it should not remove the evidence trail. That is why this loop begins with SearXNG rather than a single opaque index. Aggregation matters because research questions often need range before ranking. One engine might surface official documentation first, another might surface recent reporting, and another might surface community traces. Pulling those result sets together gives the system a better candidate pool, but it also increases the need for careful consolidation. The design problem is not merely “find results.” It is “find overlapping results, decide which are truly distinct, and show the user where the answer came from.”</p>
+          <p>The result is less like a chatbot and more like a disciplined notebook assistant. It shortens the tedious first pass, but it leaves the seams visible: where the query went, what came back, which items were fetched, which were merged, and why the final answer cites the sources it does. That visibility is not decorative. It is the only way to make a quick research answer reusable in a serious workflow where someone may revisit the same question later and need to verify each supporting link.</p>
+          <div class="pull-quote">A research loop earns trust by reducing clicks while increasing inspectability. If the user cannot see which source survived deduplication and why, the system has only hidden the friction, not resolved it.</div>
+        </section>
+
+        <section id="fanout">
+          <span class="section-kicker">Stage 02</span>
+          <h2>What happens when one query fans into many source paths?</h2>
+          <p>Once the question is normalized, the assistant sends it into a wider search fan. SearXNG acts as the broker, collecting result candidates from multiple search sources so the system is not beholden to a single ranking policy. That fanout is important for breadth, but it also creates immediate overlap. Several result paths may point to the same document through different URLs. Others may lead to summary pages that cite the original. Some may be strong only because they are recent, not because they are authoritative. The loop needs to keep that ambiguity long enough to inspect it, then narrow aggressively before any model writes prose.</p>
+          <p>The diagram below traces the intended path. One query branches through several search routes, lands in a shared candidate pool, then converges through filtering, extraction, and deduplication into a short answer block whose references remain attached. A Redis shelf sits beside the main flow because repeated work is part of the friction being removed. If the same question returns, or a close reformulation arrives, the system should be able to reuse prior search and extraction effort instead of repeating every network call.</p>
+          <figure class="figure">
+            <svg viewBox="0 0 1200 700" role="img" aria-labelledby="fanout-title fanout-desc">
+              <title id="fanout-title">Search fanout, extraction, deduplication, and cited answer diagram</title>
+              <desc id="fanout-desc">A single research query branches into SearXNG result paths, moves through candidate filtering, page fetch, extraction, deduplication, and summary assembly, with a side Redis cache shelf connected to query and evidence reuse.</desc>
+              <defs>
+                <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+                  <path d="M0,0 L12,6 L0,12 z" fill="#111111"></path>
+                </marker>
+              </defs>
+              <rect x="30" y="30" width="1140" height="640" fill="#ffffff"></rect>
+              <rect x="65" y="250" width="150" height="96" fill="#f5f5f5" stroke="#111111" stroke-width="2"></rect>
+              <text x="140" y="287" text-anchor="middle" font-family="IBM Plex Mono" font-size="24" fill="#111111">query</text>
+              <text x="140" y="317" text-anchor="middle" font-family="Source Serif 4" font-size="19" fill="#111111">"compare edge LLM</text>
+              <text x="140" y="341" text-anchor="middle" font-family="Source Serif 4" font-size="19" fill="#111111">latency benchmarks"</text>
+
+              <rect x="300" y="92" width="200" height="72" fill="#ffffff" stroke="#111111" stroke-width="2"></rect>
+              <rect x="300" y="202" width="200" height="72" fill="#ffffff" stroke="#111111" stroke-width="2"></rect>
+              <rect x="300" y="312" width="200" height="72" fill="#ffffff" stroke="#111111" stroke-width="2"></rect>
+              <rect x="300" y="422" width="200" height="72" fill="#ffffff" stroke="#111111" stroke-width="2"></rect>
+              <text x="400" y="132" text-anchor="middle" font-family="IBM Plex Mono" font-size="21" fill="#111111">SearXNG path A</text>
+              <text x="400" y="242" text-anchor="middle" font-family="IBM Plex Mono" font-size="21" fill="#111111">SearXNG path B</text>
+              <text x="400" y="352" text-anchor="middle" font-family="IBM Plex Mono" font-size="21" fill="#111111">SearXNG path C</text>
+              <text x="400" y="462" text-anchor="middle" font-family="IBM Plex Mono" font-size="21" fill="#111111">SearXNG path D</text>
+
+              <line x1="215" y1="298" x2="300" y2="128" stroke="#111111" stroke-width="2" marker-end="url(#arrow)"></line>
+              <line x1="215" y1="298" x2="300" y2="238" stroke="#111111" stroke-width="2" marker-end="url(#arrow)"></line>
+              <line x1="215" y1="298" x2="300" y2="348" stroke="#111111" stroke-width="2" marker-end="url(#arrow)"></line>
+              <line x1="215" y1="298" x2="300" y2="458" stroke="#111111" stroke-width="2" marker-end="url(#arrow)"></line>
+
+              <rect x="585" y="175" width="190" height="90" fill="#f5f5f5" stroke="#111111" stroke-width="2"></rect>
+              <rect x="585" y="292" width="190" height="90" fill="#ffffff" stroke="#111111" stroke-width="2"></rect>
+              <rect x="585" y="409" width="190" height="90" fill="#f5f5f5" stroke="#111111" stroke-width="2"></rect>
+              <text x="680" y="213" text-anchor="middle" font-family="IBM Plex Mono" font-size="20" fill="#111111">candidate filter</text>
+              <text x="680" y="241" text-anchor="middle" font-family="Source Serif 4" font-size="17" fill="#111111">title, host, rank, freshness</text>
+              <text x="680" y="330" text-anchor="middle" font-family="IBM Plex Mono" font-size="20" fill="#111111">page fetch</text>
+              <text x="680" y="358" text-anchor="middle" font-family="Source Serif 4" font-size="17" fill="#111111">extract readable text</text>
+              <text x="680" y="447" text-anchor="middle" font-family="IBM Plex Mono" font-size="20" fill="#111111">dedupe + evidence set</text>
+              <text x="680" y="475" text-anchor="middle" font-family="Source Serif 4" font-size="17" fill="#111111">merge mirrors, keep canonicals</text>
+
+              <line x1="500" y1="128" x2="585" y2="220" stroke="#111111" stroke-width="2" marker-end="url(#arrow)"></line>
+              <line x1="500" y1="238" x2="585" y2="220" stroke="#111111" stroke-width="2" marker-end="url(#arrow)"></line>
+              <line x1="500" y1="348" x2="585" y2="220" stroke="#111111" stroke-width="2" marker-end="url(#arrow)"></line>
+              <line x1="500" y1="458" x2="585" y2="220" stroke="#111111" stroke-width="2" marker-end="url(#arrow)"></line>
+              <line x1="680" y1="265" x2="680" y2="292" stroke="#111111" stroke-width="2" marker-end="url(#arrow)"></line>
+              <line x1="680" y1="382" x2="680" y2="409" stroke="#111111" stroke-width="2" marker-end="url(#arrow)"></line>
+
+              <rect x="865" y="247" width="250" height="175" fill="#ffffff" stroke="#111111" stroke-width="2"></rect>
+              <text x="990" y="286" text-anchor="middle" font-family="IBM Plex Mono" font-size="22" fill="#111111">cited answer block</text>
+              <line x1="895" y1="312" x2="1085" y2="312" stroke="#c2c2c2" stroke-width="2"></line>
+              <text x="895" y="342" font-family="Source Serif 4" font-size="18" fill="#111111">Short synthesis assembled from</text>
+              <text x="895" y="366" font-family="Source Serif 4" font-size="18" fill="#111111">extracted evidence, not from</text>
+              <text x="895" y="390" font-family="Source Serif 4" font-size="18" fill="#111111">search snippets alone. [1][2][3]</text>
+
+              <line x1="775" y1="454" x2="865" y2="334" stroke="#111111" stroke-width="2" marker-end="url(#arrow)"></line>
+
+              <rect x="830" y="82" width="285" height="118" fill="#f5f5f5" stroke="#111111" stroke-width="2"></rect>
+              <text x="972" y="116" text-anchor="middle" font-family="IBM Plex Mono" font-size="21" fill="#111111">Redis cache shelf</text>
+              <text x="860" y="144" font-family="Source Serif 4" font-size="17" fill="#111111">search:{query_fingerprint}</text>
+              <text x="860" y="168" font-family="Source Serif 4" font-size="17" fill="#111111">extract:{canonical_url_hash}</text>
+              <line x1="215" y1="268" x2="830" y2="140" stroke="#111111" stroke-width="1.8" stroke-dasharray="8 7" marker-end="url(#arrow)"></line>
+              <line x1="775" y1="336" x2="830" y2="168" stroke="#111111" stroke-width="1.8" stroke-dasharray="8 7" marker-end="url(#arrow)"></line>
+            </svg>
+            <figcaption>The fan matters because the assistant is meant to behave like a careful research aide rather than a one-engine wrapper. Each branch can return overlapping or conflicting candidates, so the system delays summarization until title, host, canonical URL hints, and extracted text have been inspected. The side cache is not just a performance trick; it is part of the research ergonomics. Queries repeat. Investigations get reframed. Follow-up prompts often differ by only a few tokens. Reusing earlier search pools and page extracts lowers latency, but it also stabilizes the evidence set, which means a second pass is more likely to cite the same source lineage instead of drifting because a remote ranking changed.</figcaption>
+          </figure>
+          <p>At this point the assistant still does not claim to know the answer. It only knows the candidate landscape. That distinction is important. Search result pages are useful as routing data, not as evidence by themselves. The loop uses them to decide what to fetch next, what to cache, and what may already be a duplicate before expensive extraction begins.</p>
+        </section>
+
+        <section id="fetch">
+          <span class="section-kicker">Stage 03</span>
+          <h2>Which pages deserve a full fetch?</h2>
+          <p>Fetching everything is wasteful and often counterproductive. Many result lists contain pages that are obviously weak once basic metadata is considered: empty tag pages, navigational fragments, mirrors of the same article, AI-generated reposts, or link farms whose only value is that they happen to match the keywords. The system therefore performs candidate filtering before the content reader is invoked. This is where simple heuristics still do valuable work. Host reputation, path shape, repeated titles, suspiciously generic snippets, and obvious redirect patterns can all be used to remove low-value candidates without pretending the machine has fully interpreted the subject matter.</p>
+          <p>That filtering stage is intentionally modest. It is not there to decide truth. It is there to reduce reading load and to ensure the extraction budget goes to pages with a plausible chance of becoming evidence. In a sources-first loop, a strong official changelog, a primary documentation page, a well-cited article, and a carefully scoped community discussion may all survive, because each can support a different part of the answer. The key is that they are fetched for inspection as pages, not accepted as snippets. Search snippets compress too aggressively; they often omit qualifiers, dates, caveats, and surrounding language that determine whether a claim is actually relevant.</p>
+          <p>Redis helps here as well. When the same canonical URL appears in several searches, the assistant should not repeatedly fetch and extract it. A cached extract keyed to the canonical form of the page means the system can spend its latency budget on genuinely new material. That makes follow-up research feel cumulative rather than forgetful.</p>
+          <div class="note-grid">
+            <div class="note-card">
+              <span class="note-label">Why this matters</span>
+              <h3>Search results are routing hints</h3>
+              <p>The result page is a map of possibilities. It is not yet the evidence set, and it should not be summarized as though it were.</p>
+            </div>
+            <div class="note-card">
+              <span class="note-label">Practical filter</span>
+              <h3>Weak candidates fail cheaply</h3>
+              <p>Low-value hosts, duplicate titles, and empty content patterns should be removed before extraction consumes time and tokens.</p>
+            </div>
+            <div class="note-card">
+              <span class="note-label">Research bias</span>
+              <h3>Primary beats derivative</h3>
+              <p>Official or original sources are preferred because they keep the provenance chain short and easier to audit.</p>
+            </div>
+          </div>
+        </section>
+
+        <section id="extract">
+          <span class="section-kicker">Stage 04</span>
+          <h2>What survives once the page is extracted?</h2>
+          <p>Extraction is where the assistant stops dealing in search abstractions and starts dealing with readable evidence. The purpose is not to scrape every byte of a page. It is to isolate the portion a human researcher would actually read: title, byline when relevant, publication hints, headings, body text, and sometimes tabular or list content if it carries the core claim. Navigation chrome, cookie notices, footer spam, and recommended-link noise are liabilities because they increase token load without increasing evidence quality. A compact, readable extract is therefore a research asset in its own right.</p>
+          <p>This stage also introduces an important humility rule: the summarizer should see less than the crawler can technically collect. The more indiscriminate the extracted payload, the easier it is for the final model to produce an answer that sounds grounded while actually leaning on peripheral text. Trimming the extract to what would survive a human first pass keeps the loop closer to research behavior. The assistant is effectively preparing a stack of annotated clippings, not training a model on the internet in miniature.</p>
+          <p>Short summaries generated with Gemini Flash belong after this cleaning step. The model is useful when it is given a bounded evidence set and asked to produce a concise account of what each source contributes. It is less useful when it is treated as a substitute for extraction. In this design, the model does not decide which pages exist, and it should not decide what the citation anchor is. It receives curated material and returns a short synthesis that still points back to the extracted sources. That order of operations matters because it narrows the model's freedom. The assistant is not rewarded for sounding comprehensive. It is rewarded for being traceable.</p>
+          <div class="code-grid">
+            <div class="code-card">
+              <h3>Readable extract shape</h3>
+              <pre><code>{
+  "url": canonical_url,
+  "title": page_title,
+  "published_at": detected_date,
+  "content": cleaned_text,
+  "headings": selected_headings,
+  "source_host": host
+}</code></pre>
+            </div>
+            <div class="code-card">
+              <h3>Cache key for extracted pages</h3>
+              <pre><code>extract_key = (
+  "extract:" +
+  sha256(normalize_url(canonical_url))
+)</code></pre>
+            </div>
+          </div>
+          <p>The extract is therefore the turning point in the loop. Before extraction, the system is still browsing possibilities. After extraction, it has assembled the raw material for evidence-aware summarization.</p>
+        </section>
+
+        <section id="collapse-duplicates">
+          <span class="section-kicker">Stage 05</span>
+          <h2>How do repeated URLs collapse into evidence rather than noise?</h2>
+          <p>Deduplication is often described too casually, as if it were a trivial cleanup step at the end of search. In practice it determines whether the assistant behaves like a researcher or like a tab hoarder. Many duplicates are obvious only after the page is fetched. A press release may appear on the vendor site, a newsroom mirror, an investor portal, and a dozen copied articles. A documentation page may have localized versions, tracking parameters, and print views that look distinct at the URL level while being identical in substance. If those variants are allowed to enter summarization separately, the final answer will overcount agreement and undercount original evidence.</p>
+          <p>The design therefore needs dedupe keys that combine URL normalization with content-aware checks. Normalized host and path can catch superficial variance. Title similarity and content fingerprinting can catch mirrors that survive URL cleanup. When several records collapse into one evidence item, the assistant should preserve a canonical source, record alternates, and carry forward the strongest citation target. That target might be the official page, the original publication, or the most stable accessible copy, depending on the question.</p>
+          <p>This is where the system earns the right to summarize. Candidate filtering removed obvious weak links. Extraction produced readable material. Deduplication turns a pile of fetched pages into a coherent evidence set. Only now can the summarizer be asked for a short answer without quietly amplifying repetition.</p>
+          <div class="code-grid">
+            <div class="code-card">
+              <h3>Simple dedupe fingerprint</h3>
+              <pre><code>dedupe_key = (
+  normalize_host(url) + "|" +
+  normalize_path(url) + "|" +
+  sha1(first_1500_chars(cleaned_text))
+)</code></pre>
+            </div>
+            <div class="code-card">
+              <h3>Merge rule sketch</h3>
+              <pre><code>if same_canonical_url or near_identical_text:
+  keep = choose_preferred_source(group)
+  keep.alternates.extend(other_urls)
+  drop_rest(group)</code></pre>
+            </div>
+          </div>
+          <p>The point of those keys is not mathematical perfection. It is operational discipline. A research tool gains reliability when it avoids counting the same claim three times simply because three indexes surfaced three wrappers around the same page.</p>
+        </section>
+
+        <section id="assembly">
+          <span class="section-kicker">Stage 06</span>
+          <h2>When does summarization become assembly instead of invention?</h2>
+          <p>By the time Gemini Flash is asked to produce a short synthesis, most of the hard work should already be done. The candidate set is filtered. The pages are extracted. Duplicates are collapsed. The remaining task is closer to editorial assembly than to open-ended generation. The model can now summarize the evidence set, compare the surviving sources, and produce a compact answer that preserves uncertainty where the sources diverge. That is a useful role for a fast model because it shortens reading time without pretending the model discovered the evidence itself.</p>
+          <p>The assembly step should be tightly scoped. Each statement in the answer ought to be backed by one or more extracted sources. If a source is used only for context and not for a factual claim, that should be clear in how the answer is phrased. If two sources conflict on a date, a version number, or a policy detail, the answer should not smooth over the discrepancy just to sound clean. Citation-minded research has a different standard from generic assistant copy. It values explicitness over tonal confidence.</p>
+          <p>That is also why the answer block should stay short. The more verbose the synthesis, the more likely it is to drift beyond the evidence set. A good research answer gives the user the main conclusion, the basis for that conclusion, and a path to inspect the underlying sources. It does not try to absorb the entire reading list into one totalizing paragraph.</p>
+          <div class="citation-demo">
+            <h3>Answer assembly example</h3>
+            <pre><code>answer = assemble(
+  prompt=query,
+  evidence=deduped_extracts,
+  instructions="Summarize briefly. Cite every factual claim."
+)</code></pre>
+            <div class="answer-block">
+              <p>Redis shortens repeated research loops by reusing prior search pools and page extracts, while the answer itself stays grounded in the deduplicated evidence set rather than raw search snippets. In this design, SearXNG broadens intake, extraction narrows reading to relevant text, and Gemini Flash writes only after those sources have been consolidated. [1][2][3]</p>
+            </div>
+          </div>
+        </section>
+
+        <section id="citations">
+          <span class="section-kicker">Stage 07</span>
+          <h2>How are citations presented without becoming decorative?</h2>
+          <p>Citations only matter if they remain easy to inspect. Many assisted systems add a bracketed number after the fact, but the citation target is vague, the link opens a search result instead of a source, or the supporting excerpt is impossible to find on the page. This design pushes in the other direction. The answer block should make each source visible as an object with a title, host, link, and a short statement of what that source contributes. In other words, the citation layer is not a footnote treatment added to generated prose. It is a parallel presentation of the evidence set that lets the user decide whether the synthesis is fair.</p>
+          <p>That means the source list should be as carefully assembled as the answer itself. The canonical source should be shown, alternates should be hidden unless useful, and repeated references should resolve to the same item instead of duplicating entries. A good citation panel also reveals what kind of source is being cited. Official documentation, company blog posts, community discussions, academic papers, and reporting all play different roles in research, and users should be able to see those differences quickly.</p>
+          <figure class="figure">
+            <svg viewBox="0 0 1200 720" role="img" aria-labelledby="cite-title cite-desc">
+              <title id="cite-title">Cache and citation presentation companion diagram</title>
+              <desc id="cite-desc">A diagram showing query normalization to cache keys on the left and a cited answer with a source panel on the right, emphasizing stable fingerprints and inspectable references.</desc>
+              <defs>
+                <marker id="arrow-two" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+                  <path d="M0,0 L12,6 L0,12 z" fill="#111111"></path>
+                </marker>
+              </defs>
+              <rect x="26" y="26" width="1148" height="668" fill="#ffffff"></rect>
+              <line x1="600" y1="70" x2="600" y2="650" stroke="#d6d6d6" stroke-width="2" stroke-dasharray="8 8"></line>
+
+              <text x="110" y="105" font-family="IBM Plex Mono" font-size="22" fill="#111111">cache discipline</text>
+              <rect x="70" y="140" width="210" height="82" fill="#f5f5f5" stroke="#111111" stroke-width="2"></rect>
+              <text x="175" y="174" text-anchor="middle" font-family="IBM Plex Mono" font-size="18" fill="#111111">normalized query</text>
+              <text x="175" y="198" text-anchor="middle" font-family="Source Serif 4" font-size="17" fill="#111111">lowercase, trim, aliases</text>
+
+              <rect x="70" y="278" width="210" height="82" fill="#ffffff" stroke="#111111" stroke-width="2"></rect>
+              <text x="175" y="312" text-anchor="middle" font-family="IBM Plex Mono" font-size="18" fill="#111111">query fingerprint</text>
+              <text x="175" y="336" text-anchor="middle" font-family="Source Serif 4" font-size="17" fill="#111111">semantic near-match key</text>
+
+              <rect x="70" y="416" width="210" height="82" fill="#f5f5f5" stroke="#111111" stroke-width="2"></rect>
+              <text x="175" y="450" text-anchor="middle" font-family="IBM Plex Mono" font-size="18" fill="#111111">Redis entries</text>
+              <text x="175" y="474" text-anchor="middle" font-family="Source Serif 4" font-size="17" fill="#111111">search, extract, answer</text>
+
+              <line x1="175" y1="222" x2="175" y2="278" stroke="#111111" stroke-width="2" marker-end="url(#arrow-two)"></line>
+              <line x1="175" y1="360" x2="175" y2="416" stroke="#111111" stroke-width="2" marker-end="url(#arrow-two)"></line>
+
+              <text x="665" y="105" font-family="IBM Plex Mono" font-size="22" fill="#111111">citation presentation</text>
+              <rect x="645" y="140" width="470" height="210" fill="#f5f5f5" stroke="#111111" stroke-width="2"></rect>
+              <text x="678" y="180" font-family="IBM Plex Mono" font-size="20" fill="#111111">answer block</text>
+              <line x1="678" y1="196" x2="1083" y2="196" stroke="#c2c2c2" stroke-width="2"></line>
+              <text x="678" y="230" font-family="Source Serif 4" font-size="18" fill="#111111">Claim A cites the official documentation. [1]</text>
+              <text x="678" y="258" font-family="Source Serif 4" font-size="18" fill="#111111">Claim B cites a secondary analysis for context. [2]</text>
+              <text x="678" y="286" font-family="Source Serif 4" font-size="18" fill="#111111">Claim C remains qualified because sources diverge. [1][3]</text>
+
+              <rect x="645" y="392" width="470" height="208" fill="#ffffff" stroke="#111111" stroke-width="2"></rect>
+              <text x="678" y="430" font-family="IBM Plex Mono" font-size="20" fill="#111111">source panel</text>
+              <line x1="678" y1="446" x2="1083" y2="446" stroke="#c2c2c2" stroke-width="2"></line>
+              <text x="678" y="478" font-family="Source Serif 4" font-size="18" fill="#111111">[1] Official docs, canonical URL, extracted on latest fetch</text>
+              <text x="678" y="506" font-family="Source Serif 4" font-size="18" fill="#111111">[2] Reporting article, distinct interpretation, link retained</text>
+              <text x="678" y="534" font-family="Source Serif 4" font-size="18" fill="#111111">[3] Community thread, useful but lower authority, flagged</text>
+
+              <line x1="280" y1="457" x2="645" y2="250" stroke="#111111" stroke-width="2" stroke-dasharray="9 8" marker-end="url(#arrow-two)"></line>
+              <text x="396" y="321" font-family="Source Serif 4" font-size="18" fill="#111111">cache hit reuses evidence objects</text>
+              <text x="414" y="347" font-family="Source Serif 4" font-size="18" fill="#111111">so the same citations remain stable</text>
+            </svg>
+            <figcaption>This companion figure pairs two ideas that are usually treated separately. On the left, caching is shown as a discipline of stable fingerprints rather than a raw key-value shortcut: normalize the query, generate a reusable query fingerprint, then store search pools, extracted pages, and possibly answer objects with clear boundaries. On the right, citation presentation is shown as a first-class interface rather than a footer. The value of the cache is not just speed. It helps keep the evidence objects stable across repeat investigations, which means the answer is less likely to cite a different mix of sources simply because the user asked the same question twice in slightly different wording.</figcaption>
+          </figure>
+          <p>The model can be fast, the answer can be short, and the citations can still remain central. That is the design standard here. A private research assistant should make it easier to open the source, not easier to forget that the source exists.</p>
+          <ul class="source-stack">
+            <li><strong>[1] Canonical source</strong>Official or primary page used for the central factual anchor. Link retained, canonical URL preferred, extraction timestamp stored.</li>
+            <li><strong>[2] Supporting source</strong>Secondary reporting or analysis that adds framing, comparison, or independent confirmation without replacing the primary citation.</li>
+            <li><strong>[3] Qualified source</strong>Lower-authority but still useful material, shown with its role made explicit so the user can weigh it correctly.</li>
+          </ul>
+        </section>
+
+        <section id="constraints">
+          <span class="section-kicker">Stage 08</span>
+          <h2>What operational constraints keep the loop honest?</h2>
+          <p>A useful research assistant is defined as much by what it refuses to do as by what it automates. This loop should not present citation-free claims as settled fact. It should not summarize based only on search snippets when readable extracts are unavailable. It should not silently merge conflicting sources into a single confident sentence. And it should not let caching hide recency concerns. Cached search results and extracted pages must age out or be refreshed according to the kind of question being asked, because a product specification, a policy page, and a historical article each carry different update risks.</p>
+          <p>Operationally, that means the system needs boundaries. Fetch budgets prevent one question from exploding into an uncontrolled crawl. Extraction rules keep the evidence payload readable. Dedupe rules prevent repetition from masquerading as consensus. Summarization instructions keep Gemini Flash in a narrow lane: brief, grounded, and citation-aware. Cache policies decide when a prior answer is reusable and when the system must revisit retrieval. None of those controls are ornamental. They are what stop a retrieval loop from collapsing back into a generic answer engine.</p>
+          <p>The closing principle is simple: the assistant should make repeated research faster without making provenance weaker. If the user asks a similar question tomorrow, Redis should help the system avoid unnecessary work. If the evidence has changed, the assistant should say so or refresh. If a source cannot be extracted cleanly, the answer should show that limitation instead of bluffing. The loop is successful when the user feels the investigation has been accelerated but not obscured.</p>
+          <div class="constraint-list">
+            <h3>Operational constraints</h3>
+            <ul>
+              <li>Search aggregation broadens intake, but retrieval does not count as evidence until a page is fetched and extracted.</li>
+              <li>Deduplication happens before summarization so the model is not rewarded for repeating mirrored claims.</li>
+              <li>Gemini Flash is used for short summaries, not for unbounded synthesis over raw search results.</li>
+              <li>Citations and links remain visible in the final answer because the tool is meant to support research, not replace source reading.</li>
+              <li>Redis accelerates repeated or similar queries, but cache freshness must reflect the volatility of the topic.</li>
+            </ul>
+          </div>
+          <p class="footer-note">This explainer describes a sources-first research loop with SearXNG aggregation, extraction, deduplication, short Gemini Flash summaries, visible citations, and Redis reuse. The governing idea is constant across every stage: reduce research friction without hiding where the answer came from.</p>
+        </section>
+      </article>
+    </div>
+  </div>
+</body>
+</html>
