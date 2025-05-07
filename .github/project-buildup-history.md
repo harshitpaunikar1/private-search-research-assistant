@@ -48,3 +48,7 @@
 
 - Task summary: After stepping away for a bit, came back and there was a subtle off-by-one error in the index slicing that was silently skewing results. Caught it and fixed it.
 - Deliverable: Small fix, clean result.
+## 2025-05-07 - Day 7: HTML scaffold
+
+- Task summary: After stepping away for a bit, came back and wrapped a repeated block in a helper function since it showed up three times.
+- Deliverable: Solid now, moving on.
