@@ -44,3 +44,7 @@
 
 - Task summary: One more pass: pushed a tiny fix after a teammate's comment — nothing major, just a wording issue in the output.
 - Deliverable: Wrapped it up properly this time.
+## 2025-05-07 - Day 7: HTML scaffold
+
+- Task summary: After stepping away for a bit, came back and there was a subtle off-by-one error in the index slicing that was silently skewing results. Caught it and fixed it.
+- Deliverable: Small fix, clean result.
