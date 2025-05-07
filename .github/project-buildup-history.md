@@ -40,3 +40,7 @@
 
 - Task summary: One more pass: ran the whole thing end to end again after a fresh look. Caught a stale import that broke the flow.
 - Deliverable: Small fix, clean result.
+## 2025-05-07 - Day 7: HTML scaffold
+
+- Task summary: One more pass: pushed a tiny fix after a teammate's comment — nothing major, just a wording issue in the output.
+- Deliverable: Wrapped it up properly this time.
