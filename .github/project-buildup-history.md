@@ -64,3 +64,7 @@
 
 - Task summary: Spent another hour on this: pushed a tiny fix after a teammate's comment — nothing major, just a wording issue in the output.
 - Deliverable: Wrapped it up properly this time.
+## 2025-05-08 - Day 8: Styling
+
+- Task summary: Spent another hour on this: spent time just reading back through everything to make sure it still made sense end to end.
+- Deliverable: Pushed before end of day.
