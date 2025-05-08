@@ -60,3 +60,7 @@
 
 - Task summary: After stepping away for a bit, came back and spent time just reading back through everything to make sure it still made sense end to end.
 - Deliverable: One of those satisfying small wins.
+## 2025-05-08 - Day 8: Styling
+
+- Task summary: Spent another hour on this: pushed a tiny fix after a teammate's comment — nothing major, just a wording issue in the output.
+- Deliverable: Wrapped it up properly this time.
