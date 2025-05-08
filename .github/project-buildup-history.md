@@ -68,3 +68,7 @@
 
 - Task summary: Spent another hour on this: spent time just reading back through everything to make sure it still made sense end to end.
 - Deliverable: Pushed before end of day.
+## 2025-05-08 - Day 8: Styling
+
+- Task summary: Ended up revisiting this in the evening — pushed a config tweak after noticing the wrong default param was being used.
+- Deliverable: Cleaner than this morning's version.
