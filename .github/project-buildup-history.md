@@ -16,3 +16,7 @@
 
 - Task summary: The truncation was cutting in the middle of sentences which felt bad. Added a sentence boundary detector to cut only at sentence ends.
 - Deliverable: Context truncation now cuts at sentence boundaries.
+## 2025-11-10 - Day 4: Context assembly
+
+- Task summary: Added source citation tracking so the final answer includes which documents each piece of context came from.
+- Deliverable: Source citation tracking added to context assembly.
