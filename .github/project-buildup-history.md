@@ -12,3 +12,7 @@
 
 - Task summary: Built the context assembly layer for the Private Search Research Assistant. After retrieval, the top documents need to be assembled into a coherent context block that gets passed to the local LLM. Implemented token-aware truncation so the context never exceeds the model's context window, with a priority ordering that keeps the highest-scoring chunks. Also handled the case where the query spans multiple documents and the relevant passages are spread across them.
 - Deliverable: Token-aware context assembly with priority ordering implemented.
+## 2025-11-10 - Day 4: Context assembly
+
+- Task summary: The truncation was cutting in the middle of sentences which felt bad. Added a sentence boundary detector to cut only at sentence ends.
+- Deliverable: Context truncation now cuts at sentence boundaries.
