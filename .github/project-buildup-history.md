@@ -24,3 +24,7 @@
 
 - Task summary: Built the document indexing pipeline for the Private Search Research Assistant. The pipeline reads documents from a configured local directory, chunks them into overlapping passages, computes embeddings for each chunk, and writes the index to a local FAISS index file. Made the chunking strategy configurable (chunk size and overlap) since the optimal values depend on the document type. Also added incremental indexing so only new or changed documents are re-indexed on subsequent runs.
 - Deliverable: Indexing pipeline complete with configurable chunking. Incremental indexing implemented.
+## 2025-12-15 - Day 5: Document indexing
+
+- Task summary: The incremental indexing was comparing file modification timestamps, but on some Windows filesystems the precision was too low to detect changes within the same second. Switched to a content hash comparison.
+- Deliverable: Incremental indexing switched from mtime to content hash for reliability.
