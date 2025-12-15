@@ -20,3 +20,7 @@
 
 - Task summary: Added source citation tracking so the final answer includes which documents each piece of context came from.
 - Deliverable: Source citation tracking added to context assembly.
+## 2025-12-15 - Day 5: Document indexing
+
+- Task summary: Built the document indexing pipeline for the Private Search Research Assistant. The pipeline reads documents from a configured local directory, chunks them into overlapping passages, computes embeddings for each chunk, and writes the index to a local FAISS index file. Made the chunking strategy configurable (chunk size and overlap) since the optimal values depend on the document type. Also added incremental indexing so only new or changed documents are re-indexed on subsequent runs.
+- Deliverable: Indexing pipeline complete with configurable chunking. Incremental indexing implemented.
